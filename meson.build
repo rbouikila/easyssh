@@ -1,38 +1,21 @@
-project('com.github.muriloventuroso.easyssh', 'vala', 'c', version: '1.3.4')
+project('com.github.muriloventuroso.easyssh', 'vala', 'c', version: '1.4.5')
 
 gnome = import('gnome')
 i18n = import('i18n')
+with_gpg = get_option('with-gpg')
+add_global_arguments('-DGETTEXT_PACKAGE="@0@"'.format(meson.project_name()), language:'c')
 
-add_global_arguments('-DGETTEXT_PACKAGE="' + meson.project_name() + '"', language:'c')
-add_project_arguments('--define=UNITY_SUPPORT=1', language : 'vala')
-# Add locale support
-conf = configuration_data()
-conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
-conf.set_quoted('PREFIX', get_option('prefix'))
-conf.set_quoted('VERSION', meson.project_version())
-conf.set_quoted('PACKAGE', meson.project_name())
-conf.set_quoted('LOCALE_DIR', join_paths(get_option('prefix'), get_option('localedir')))
-conf.set_quoted('DATADIR', join_paths(get_option('prefix'), get_option('datadir')))
-conf.set_quoted('PKGDATADIR', join_paths(get_option('prefix'), get_option('datadir'), meson.project_name()))
-code_resources = gnome.compile_resources(
-    'code-resources', 'data/' + meson.project_name() + '.gresource.xml',
-    source_dir: 'data'
+if get_option('ubuntu-bionic-patched-vte')
+    add_project_arguments(['--define', 'UBUNTU_BIONIC_PATCHED_VTE'], language : 'vala')
+endif
+
+asresources = gnome.compile_resources(
+    'as-resources', 'data/' + meson.project_name() + '.gresource.xml',
+    source_dir: 'data',
+    c_name: 'as'
 )
 
-configure_file(
-  output: 'config.h',
-  configuration: conf
-)
-config_h_dir = include_directories('src')
 
-# Arguments C - no gcc warnings
-c_args = [
-  '-include', 'config.h',
-  '-w', '-DGETTEXT_PACKAGE="' + meson.project_name() + '"'
-]
-
-subdir('data')
-subdir('po')
 dependencies = [
     dependency('gee-0.8'),
     dependency('glib-2.0'),
@@ -48,12 +31,18 @@ if get_option('libunity')
     add_project_arguments('--define=UNITY_SUPPORT=1', language : 'vala')
     dependencies += unity_dep
 endif
-if get_option('ubuntu-bionic-patched-vte')
-    add_project_arguments(['--define', 'UBUNTU_BIONIC_PATCHED_VTE'], language : 'vala')
+
+if with_gpg
+    gpg = find_program('gpg', 'gpg2', required: true)
+    add_project_arguments(['--define', 'WITH_GPG'], language : 'vala')
+
 endif
+
+
+
 executable(
     meson.project_name(),
-    code_resources,
+    asresources,
     'src/Application.vala',
     'src/Host.vala',
     'src/MainWindow.vala',
@@ -72,3 +61,6 @@ executable(
 )
 
 meson.add_install_script('meson/post_install.py')
+
+subdir('data')
+subdir('po')
